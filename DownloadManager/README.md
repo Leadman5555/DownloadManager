@@ -72,10 +72,10 @@ Inside it are several properties:
 - max_download_size: videos above the given limit will have their quality lowered or not be downloaded at all. This property may not work correctly. Default is -1, which means no limit on size.
 #### Encoding
 - encoding_standard: decides about the speed and quality of video compression. Slower means files will take less size but compression will take more time.  
-  0 → faster, 1 → fast , 2 → medium, 3 → slow, 4 → slower
+  0 → faster, 1 → fast, 2 → medium, 3 → slow, 4 → slower
 - crf: decides about video quality after encoding, higher CRF value (lower index) means that videos will be of worse quality but encoding will be faster  
   0 → 32, 1 → 28, 2 → 23, 3 → 21, 4 → 18
-- use_h265: whether to use h264 or h265 codec for videos. H265 is better in all aspects but encoding takes longer and is not supported on older hardware and may require third party software to display (like VLC Player) on Windows 10  
+- use_h265: whether to use h264 or h265 codec for videos. H265 is better in all aspects, but encoding takes longer and is not supported on older hardware and may require third party software to display (like VLC Player) on Windows 10  
   true → use h265 codec, false → use older h264 instead
 ### Running the application
 #### Option A: Easy start on Windows
