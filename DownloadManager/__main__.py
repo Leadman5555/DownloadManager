@@ -60,7 +60,7 @@ def collect_urls(downloaders: dict[str, BaseDownloader]) -> tuple[dict[str, list
     MessageHandler.info("Registered platforms and their respective URL schemes (links without the quotes):\n")
     for downloader in downloaders.values():
         MessageHandler.info(f"Platform {downloader.platform} -> URL scheme: '{downloader.get_sample_url()}'")
-    MessageHandler.info(f"\nTotal platforms registered {len(downloaders)}\n")
+    MessageHandler.info(f"Total platforms registered {len(downloaders)}\n")
     MessageHandler.info("Enter video urls to download one by one. Empty line to finish.")
     downloader_to_urls: dict[str, list[tuple[str, str]]] = {}
     registered_url_count: int = 0

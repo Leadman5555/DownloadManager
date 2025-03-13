@@ -189,9 +189,16 @@ class BaseDownloader(ABC):
             '-na'
         ]
 
+    def trim_params_and_validate(self, trim_from: int, url: str, scheme_len: int) -> tuple[str, str] | None:
+        if trim_from == -1:
+            if not self.validate_video_part(url[scheme_len:]): return None
+            return url, url[scheme_len:]
+        else:
+            video_part = url[scheme_len:trim_from]
+            if not self.validate_video_part(video_part): return None
+            return url[:trim_from], video_part
 
-class YoutubeDownloader(BaseDownloader):
-
+class EmbeddedVideoMetadataDownloader(BaseDownloader, ABC):
     def download_and_index(self, url_list: list[tuple[str, str]], indexer: Indexer = None) -> tuple[int, int]:
         download_success_count: int = 0
         index_success_count: int = 0
@@ -202,29 +209,28 @@ class YoutubeDownloader(BaseDownloader):
                 try:
                     MessageHandler.info(f"Attempting to download video: {url[1]}...")
                     info = downloader.extract_info(url[0], download=True)
-                    if info is None: raise yt_dlp.DownloadError
+                    if info is None: raise yt_dlp.DownloadError("Failed to fetch video metadata")
                     download_success_count += 1
                     MessageHandler.info(f"Downloaded video: {url[1]}")
                     title = info['title']
                     uploader = info['uploader']
                     if indexer is not None and (indexer.append_to_index(url[0], title, [uploader], self.platform) is True): index_success_count += 1
                     MessageHandler.success(
-                          f"Downloading and indexing for complete. Success count: {download_success_count}D and {index_success_count}I of {len(url_list)}. Videos in queue for {self.platform} left: {count}.\n")
-                except yt_dlp.DownloadError:
-                    MessageHandler.error(f"Failed to download video: {url[1]}. Skipping... Videos in queue left: {count}.\n")
+                        f"Downloading and indexing for complete. Success count: {download_success_count}D and {index_success_count}I of {len(url_list)}. Videos in queue for {self.platform} left: {count}.\n")
+                except yt_dlp.DownloadError as e:
+                    MessageHandler.error(f"Failed to download video: {url[1]}. Reason: {e.msg}. Skipping... Videos in queue left: {count}.\n")
             return download_success_count, index_success_count
+
+    def _add_video_format_setup(self, video_format: str):
+        self._yt_dlp_options['format'] = self._yt_dlp_options.get('format',
+                                                                  '') + f'bestvideo[height<={video_format}]+bestaudio/best[height<={video_format}]/worst[height>{video_format}]'
+
+class YoutubeDownloader(EmbeddedVideoMetadataDownloader):
 
     def sanitize_url(self, url: str) -> tuple[str, str] | None:
         scheme_len = len(self.url_scheme)
         if len(url) > scheme_len and url.startswith(self.url_scheme):
-            next_param = url.find('&', scheme_len)
-            if next_param == -1:
-                if not self.validate_video_part(url[scheme_len:]): return None
-                return url, url[scheme_len:]
-            else:
-                video_part = url[scheme_len:next_param]
-                if not self.validate_video_part(video_part): return None
-                return url[:next_param], video_part
+            return self.trim_params_and_validate(url.find('&', scheme_len), url, scheme_len)
         return None
 
     @staticmethod
@@ -238,9 +244,6 @@ class YoutubeDownloader(BaseDownloader):
                 return False
         return True
 
-    def _add_video_format_setup(self, video_format: str):
-        self._yt_dlp_options['format'] = self._yt_dlp_options.get('format',
-                                                                '') + f'bestvideo[height<={video_format}]+bestaudio/best[height<={video_format}]'
     @property
     def url_scheme(self):
         return 'https://www.youtube.com/watch?v='
@@ -252,14 +255,47 @@ class YoutubeDownloader(BaseDownloader):
     def get_sample_url(self) -> str:
         return f'{self.url_scheme}[VIDEO_CODE]'
 
+class TwitchDownloader(EmbeddedVideoMetadataDownloader):
+
+    def sanitize_url(self, url: str) -> tuple[str, str] | None:
+        scheme_len = len(self.url_scheme)
+        if len(url) > scheme_len and url.startswith(self.url_scheme):
+            return self.trim_params_and_validate(url.find('?', scheme_len), url, scheme_len)
+        return None
+
+    @staticmethod
+    def validate_video_part(video_part: str) -> bool:
+        if len(video_part) != 10: return False
+        for char in video_part:
+            if 48 <= ord(char) <= 57:
+                continue
+            else:
+                return False
+        return True
+
+    @property
+    def url_scheme(self):
+        return 'https://www.twitch.tv/videos/'
+
+    @property
+    def platform(self):
+        return TWITCH_KEY
+
+    def get_sample_url(self) -> str:
+        return f'{self.url_scheme}[VIDEO_CODE]'
+
 YOUTUBE_KEY = 'Youtube'
 YOUTUBE_MATCH = 'youtube'
+TWITCH_KEY = 'Twitch'
+TWITCH_MATCH = 'twitch'
 
 def match_url_to_platform(url: str) -> str | None:
     if (len(url)) < 12: return None
     sub_ulr = url[12:] #https://www.
     if sub_ulr.startswith(YOUTUBE_MATCH):
             return YOUTUBE_KEY
+    elif sub_ulr.startswith(TWITCH_MATCH):
+            return TWITCH_KEY
     return None
 
 
@@ -287,5 +323,18 @@ def create_downloaders(should_log_everything: bool,
                 max_video_quality,
                 max_audio_quality,
                max_file_size,
+                path_to_save_location),
+        TWITCH_KEY:
+            TwitchDownloader(
+                should_log_everything,
+                logger,
+                task_finished_hook,
+                video_only,
+                crf,
+                encoding_standard,
+                use_h265,
+                max_video_quality,
+                max_audio_quality,
+                max_file_size,
                 path_to_save_location)
     }
