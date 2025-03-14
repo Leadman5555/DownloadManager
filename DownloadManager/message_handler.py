@@ -15,6 +15,10 @@ class MessageHandler:
         print(Style.RESET_ALL + f"[INFO] {msg}")
 
     @staticmethod
+    def alert(msg):
+        print(Fore.YELLOW + f"[WARNING] {msg}" + Style.RESET_ALL)
+
+    @staticmethod
     def warning(msg):
         pass
 

@@ -63,6 +63,7 @@ Inside it are several properties:
   - [URL] → link to the video
   - [TITLE] → proper title of the video extracted from the video information or webpage, not URL
   - [PLATFORM] → platform from which the video was downloaded, like YouTube
+Playlists are indexed as: "PLAYLIST: [PLATFORM]: [PLAYLIST_URL] - [PLAYLIST_TITLE]", with all playlist videos indexed underneath according to chosen format.
 #### Downloading
 - video_only: if true, only download video without audio
 - max_download_quality: videos will be downloaded in the given quality. If a video does not exist in the chosen quality, the next best existing quality will be downloaded. Default is 3, which means 1080p (Full HD) quality.  

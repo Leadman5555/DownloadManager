@@ -56,17 +56,17 @@ def set_up(downloader_config: dict[str, str | bool | None]):
         MessageHandler.info("Indexing file already exists. Will append to the end of it.")
 
 
-def collect_urls(downloaders: dict[str, BaseDownloader]) -> tuple[dict[str, list[tuple[str, str]]], int]:
+def collect_urls(downloaders: dict[str, BaseDownloader]) -> tuple[dict[str, list[tuple[str, str, bool]]], int]:
     MessageHandler.info("Registered platforms and their respective URL schemes (links without the quotes):\n")
     for downloader in downloaders.values():
-        MessageHandler.info(f"Platform {downloader.platform} -> URL scheme: '{downloader.get_sample_url()}'")
+        MessageHandler.info(f"Platform {downloader.platform} -> URL schemes: '{'; '.join(downloader.get_sample_urls())}'")
     MessageHandler.info(f"Total platforms registered {len(downloaders)}\n")
-    MessageHandler.info("Enter video urls to download one by one. Empty line to finish.")
-    downloader_to_urls: dict[str, list[tuple[str, str]]] = {}
+    MessageHandler.info("Enter video or playlist urls to download one by one. Empty line to finish.")
+    downloader_to_urls: dict[str, list[tuple[str, str, bool]]] = {}
     registered_url_count: int = 0
     while True:
         user_input = MessageHandler.receive_input(
-            "Copy the whole video url; enter an URL that starts with the scheme for platform of your choice (without the quotes): ")
+            "Copy the whole video or playlist url; enter an URL that fits the scheme for platform of your choice (without the quotes): ")
         if not user_input:
             if registered_url_count == 0:
                 MessageHandler.info("No URLs registered. Exiting...")
@@ -78,15 +78,22 @@ def collect_urls(downloaders: dict[str, BaseDownloader]) -> tuple[dict[str, list
             if downloader is None:
                 MessageHandler.error("No downloader registered for the chosen platform. Skipping...")
             else:
-                sanitation_result: tuple[str, str] | None = downloader.sanitize_url(user_input)
+                sanitation_result: tuple[str, str, bool] | None = downloader.sanitize_url(user_input)
                 if sanitation_result is None:
                     MessageHandler.error(
                         f"Malformed URL - matches {match_result} but does not meet requirements. Skipping...")
                 else:
                     downloader_to_urls.setdefault(match_result, []).append(sanitation_result)
                     registered_url_count += 1
-                    MessageHandler.info(
-                        f"Registered URL for {match_result} and for video: {sanitation_result[1]}. URLs registered: {registered_url_count}.")
+                    if sanitation_result[2]:
+                        MessageHandler.info(f"Registered URL for {match_result} and for playlist {sanitation_result[1]}. URLs registered: {registered_url_count}.")
+                        MessageHandler.info("Playlist has been registered. If you wish to download just the chosen video, please paste the URL of the video instead of the playlist.")
+                        if MessageHandler.receive_input("Type 'cancel' to remove the playlist url. Empty line or any other input to confirm.").lower() == "cancel":
+                            downloader_to_urls[match_result].pop()
+                            MessageHandler.info("Playlist url removed.")
+                            registered_url_count -= 1
+                    else:
+                        MessageHandler.info(f"Registered URL for {match_result} and for video: {sanitation_result[1]}. URLs registered: {registered_url_count}.")
         else:
             MessageHandler.error("Invalid URL - does not match any registered domain. Skipping...")
 
@@ -123,14 +130,14 @@ def main():
     total_index_success = 0
     for key in downloader_to_urls:
         current_downloader = downloaders[key]
-        MessageHandler.info(f"Downloading and indexing videos for platform {current_downloader.platform}...\n")
+        MessageHandler.info(f"Downloading and indexing entries for platform {current_downloader.platform}...\n")
         download_success_count, index_success_count = current_downloader.download_and_index(downloader_to_urls[key],indexer)
         total_download_success += download_success_count
         total_index_success += index_success_count
         MessageHandler.success(
-            f"Downloading and indexing for {current_downloader.platform} complete - downloaded: {download_success_count} and indexed: {index_success_count} videos out of {len(downloader_to_urls[key])}.\n")
+            f"Downloading and indexing for {current_downloader.platform} complete - downloaded {download_success_count} and indexed {index_success_count} entries out of {len(downloader_to_urls[key])}.\n")
     MessageHandler.success(
-        f"Downloading finished for all platforms. Downloaded {total_download_success} and indexed: {total_index_success} videos out of {url_count}")
+        f"Downloading finished for all platforms. Downloaded {total_download_success} and indexed {total_index_success} entries out of {url_count}")
 
 
 if __name__ == '__main__':
